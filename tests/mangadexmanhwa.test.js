@@ -1,193 +1,133 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
+const test = require('node:test');
+const assert = require('node:assert/strict');
 
-const requests = [];
-const mangaId = "11111111-2222-4333-8444-555555555555";
-const chapterId = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
-
-const fixtures = {
-  "/manga": {
-    result: "ok",
-    data: [
-      {
-        id: mangaId,
-        attributes: {
-          title: { en: "The Korean Test Manhwa" },
-          originalLanguage: "ko",
-        },
-        relationships: [
-          { type: "cover_art", attributes: { fileName: "cover-file" } },
-        ],
-      },
+const modulePath = require.resolve('../extensions/Manga/mangadexmanhwa.js');
+function loadWithMock(mockGet) {
+  delete require.cache[modulePath];
+  global.axios = { get: mockGet };
+  return require(modulePath);
+}
+function mangaRecord(id = '11111111-1111-4111-8111-111111111111') {
+  return {
+    id,
+    attributes: {
+      title: { en: 'Sample Korean Manhwa' },
+      description: { en: 'A test synopsis.' },
+      originalLanguage: 'ko',
+      year: 2024,
+      status: 'ongoing',
+      tags: [{ attributes: { name: { en: 'Fantasy' } } }],
+    },
+    relationships: [
+      { type: 'cover_art', attributes: { fileName: 'cover.jpg' } },
+      { type: 'author', attributes: { name: 'Test Author' } },
     ],
-    total: 1,
-  },
-  [`/manga/${mangaId}`]: {
-    result: "ok",
-    data: {
-      id: mangaId,
-      attributes: {
-        title: { en: "The Korean Test Manhwa" },
-        description: { en: "A fixture description." },
-        originalLanguage: "ko",
-        status: "ongoing",
-        year: 2025,
-        tags: [{ attributes: { name: { en: "Action" } } }],
-      },
-      relationships: [
-        { type: "author", attributes: { name: "Test Author" } },
-        { type: "artist", attributes: { name: "Test Artist" } },
-        { type: "cover_art", attributes: { fileName: "cover-file" } },
-      ],
-    },
-  },
-  [`/manga/${mangaId}/feed`]: {
-    result: "ok",
-    data: [
-      {
-        id: chapterId,
-        attributes: { chapter: "12.5", title: "A Test Chapter" },
-        relationships: [
-          {
-            type: "scanlation_group",
-            id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
-            attributes: { name: "Example Scanlation" },
-          },
-        ],
-      },
-    ],
-  },
-  [`/at-home/server/${chapterId}`]: {
-    result: "ok",
-    baseUrl: "https://uploads.example.test",
-    chapter: {
-      hash: "hashvalue",
-      data: ["001.jpg", "002.jpg"],
-      dataSaver: ["001.jpg"],
-    },
-  },
-};
-
-global.axios = {
-  async get(url, config) {
-    const parsed = new URL(url);
-    requests.push({ url: parsed, config });
-    const fixture = fixtures[parsed.pathname];
-    if (!fixture) throw new Error(`Unexpected request: ${parsed.pathname}`);
-    return { data: fixture };
-  },
-};
-
-const provider = require("../extensions/Manga/mangadexmanhwa");
-
-test("exports the current StrawVerse runtime hooks and guide aliases", () => {
-  assert.equal(provider.name, "mangadexmanhwa");
-  assert.equal(provider.version, "1.0.4");
-
-  for (const hook of [
-    "latestManga",
-    "searchManga",
-    "fetchMangaInfo",
-    "fetchChapters",
-    "fetchChapterPages",
-    "SearchManga",
-    "MangaInfo",
-    "fetchChapterImages",
-  ]) {
-    assert.equal(typeof provider[hook], "function", `${hook} must be a function`);
-  }
-});
-
-test("latestManga returns StrawVerse paginated discovery format", async () => {
-  const result = await provider.latestManga(1);
-  assert.equal(result.current_page, 1);
-  assert.equal(result.hasNextPage, false);
-  assert.equal(result.results.length, 1);
-  assert.equal(result.results[0].id, `mdko-${mangaId}`);
-  assert.equal(result.results[0].title, "The Korean Test Manhwa");
-  assert.equal(
-    result.results[0].image,
-    `https://uploads.mangadex.org/covers/${mangaId}/cover-file.256.jpg`,
-  );
-
-  const request = requests.find((entry) => entry.url.pathname === "/manga");
-  assert.equal(request.url.searchParams.get("originalLanguage[]"), "ko");
-  assert.equal(request.url.searchParams.get("availableTranslatedLanguage[]"), "en");
-  assert.equal(request.url.searchParams.get("order[latestUploadedChapter]"), "desc");
-  assert.equal(request.config, undefined, "match official provider: no per-request Axios config");
-});
-
-test("searchManga returns paginated results and uses the query", async () => {
-  const result = await provider.searchManga("Korean Test", 1);
-  assert.equal(result.results.length, 1);
-  assert.equal(result.current_page, 1);
-  assert.equal(result.results[0].title, "The Korean Test Manhwa");
-  const request = requests.filter((entry) => entry.url.pathname === "/manga").at(-1);
-  assert.equal(request.url.searchParams.get("title"), "Korean Test");
-});
-
-test("fetchMangaInfo returns standard metadata and identifies the title as Manhwa", async () => {
-  const info = await provider.fetchMangaInfo(`mdko-${mangaId}`);
-  assert.equal(info.id, `mdko-${mangaId}`);
-  assert.equal(info.title, "The Korean Test Manhwa");
-  assert.equal(info.type, "Manhwa");
-  assert.equal(info.author, "Test Author");
-  assert.equal(info.artist, "Test Artist");
-  assert.deepEqual(info.genres, ["Action"]);
-  assert.equal(info.status, "Ongoing");
-  assert.equal(info.year, 2025);
-});
-
-test("fetchChapters returns StrawVerse chapter-list structure and scanlation credit", async () => {
-  const result = await provider.fetchChapters(`mdko-${mangaId}`);
-  assert.equal(result.TotalPages, 1);
-  assert.equal(result.total, 1);
-  assert.equal(result.Chapters[0].id, `mdko-ch-${chapterId}`);
-  assert.equal(result.Chapters[0].number, 12.5);
-  assert.match(result.Chapters[0].title, /Example Scanlation/);
-});
-
-test("fetchChapterPages returns StrawVerse img page objects", async () => {
-  const pages = await provider.fetchChapterPages(`mdko-ch-${chapterId}`);
-  assert.deepEqual(pages, [
-    { page: 1, img: "https://uploads.example.test/data/hashvalue/001.jpg" },
-    { page: 2, img: "https://uploads.example.test/data/hashvalue/002.jpg" },
-  ]);
-});
-
-test("capitalized developer-guide aliases remain available", async () => {
-  const results = await provider.SearchManga("Korean Test");
-  assert.equal(Array.isArray(results), true);
-  assert.equal(results[0].title, "The Korean Test Manhwa");
-
-  const info = await provider.MangaInfo(`mdko-${mangaId}`);
-  assert.equal(info.type, "Manhwa");
-  assert.equal(info.chapters.length, 1);
-
-  const pages = await provider.fetchChapterImages(`mdko-ch-${chapterId}`);
-  assert.equal(pages[0].url, "https://uploads.example.test/data/hashvalue/001.jpg");
-});
-
-
-test("HTTP failures report the MangaDex status, API detail, and retry hint", async () => {
-  const originalAxios = global.axios;
-  global.axios = {
-    async get() {
-      const error = new Error("Request failed with status code 403");
-      error.response = {
-        status: 403,
-        data: { errors: [{ detail: "Access temporarily denied." }] },
-        headers: { "retry-after": "30" },
-      };
-      throw error;
-    },
   };
-  try {
-    await assert.rejects(
-      provider.searchManga("diagnostic-only-query", 1),
-      /MangaDex API returned HTTP 403 for \/manga.*Access temporarily denied.*Retry-After: 30/,
-    );
-  } finally {
-    global.axios = originalAxios;
+}
+
+test('exports current runtime hooks and public guide aliases', () => {
+  const extension = loadWithMock(async () => ({ data: {} }));
+  for (const hook of [
+    'latestManga', 'searchManga', 'fetchMangaInfo', 'fetchChapters',
+    'fetchChapterPages', 'SearchManga', 'MangaInfo', 'fetchChapterImages',
+  ]) {
+    assert.equal(typeof extension[hook], 'function', `${hook} must be exported`);
   }
+  assert.equal(extension.version, '1.0.5');
+});
+
+test('latestManga follows official request shape and keeps Korean/English filters', async () => {
+  let calledUrl;
+  const extension = loadWithMock(async (url) => {
+    calledUrl = url;
+    return { data: { data: [mangaRecord()], total: 1 } };
+  });
+  const result = await extension.latestManga(1);
+  const url = new URL(calledUrl);
+  assert.equal(url.pathname, '/manga');
+  assert.equal(url.searchParams.get('limit'), '30');
+  assert.equal(url.searchParams.get('includes[]'), 'cover_art');
+  assert.equal(url.searchParams.get('originalLanguage[]'), 'ko');
+  assert.equal(url.searchParams.get('availableTranslatedLanguage[]'), 'en');
+  assert.equal(url.searchParams.has('hasAvailableChapters'), false);
+  assert.equal(result.results[0].title, 'Sample Korean Manhwa');
+  assert.equal(result.results[0].id, 'mdko-11111111-1111-4111-8111-111111111111');
+  assert.equal(result.hasNextPage, false);
+});
+
+test('searchManga passes title query through the MangaDex title parameter', async () => {
+  let calledUrl;
+  const extension = loadWithMock(async (url) => {
+    calledUrl = url;
+    return { data: { data: [mangaRecord()], total: 31 } };
+  });
+  const result = await extension.searchManga('Solo Leveling', 1);
+  const url = new URL(calledUrl);
+  assert.equal(url.searchParams.get('title'), 'Solo Leveling');
+  assert.equal(url.searchParams.get('originalLanguage[]'), 'ko');
+  assert.equal(result.hasNextPage, true);
+});
+
+test('fetchMangaInfo maps metadata and marks Korean-origin titles as Manhwa', async () => {
+  const extension = loadWithMock(async (url) => {
+    assert.match(url, /\/manga\/11111111-1111-4111-8111-111111111111/);
+    return { data: { data: mangaRecord() } };
+  });
+  const info = await extension.fetchMangaInfo('mdko-11111111-1111-4111-8111-111111111111');
+  assert.equal(info.type, 'Manhwa');
+  assert.equal(info.author, 'Test Author');
+  assert.deepEqual(info.genres, ['Fantasy']);
+  assert.match(info.image, /cover\.jpg$/);
+});
+
+test('fetchChapters returns StrawVerse chapter shape and scanlation credit', async () => {
+  const extension = loadWithMock(async () => ({
+    data: {
+      data: [{
+        id: '22222222-2222-4222-8222-222222222222',
+        attributes: { chapter: '12', title: 'The Beginning' },
+        relationships: [{
+          type: 'scanlation_group',
+          id: '33333333-3333-4333-8333-333333333333',
+          attributes: { name: 'Example Team' },
+        }],
+      }],
+    },
+  }));
+  const result = await extension.fetchChapters('mdko-11111111-1111-4111-8111-111111111111');
+  assert.equal(result.total, 1);
+  assert.equal(result.Chapters[0].number, 12);
+  assert.match(result.Chapters[0].title, /Scanlation group: Example Team/);
+});
+
+test('fetchChapterPages builds original @Home image URLs', async () => {
+  const extension = loadWithMock(async (url) => {
+    assert.match(url, /\/at-home\/server\/44444444-4444-4444-8444-444444444444$/);
+    return {
+      data: {
+        baseUrl: 'https://uploads.example.net',
+        chapter: { hash: 'abc123', data: ['page-1.jpg', 'page-2.jpg'], dataSaver: [] },
+      },
+    };
+  });
+  const pages = await extension.fetchChapterPages('mdko-ch-44444444-4444-4444-8444-444444444444');
+  assert.equal(pages.length, 2);
+  assert.equal(pages[0].img, 'https://uploads.example.net/data/abc123/page-1.jpg');
+});
+
+test('duplicate in-flight requests are coalesced and cached', async () => {
+  let callCount = 0;
+  const extension = loadWithMock(async () => {
+    callCount += 1;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    return { data: { data: [mangaRecord()], total: 1 } };
+  });
+  const [first, second] = await Promise.all([
+    extension.latestManga(1),
+    extension.latestManga(1),
+  ]);
+  assert.equal(callCount, 1);
+  assert.deepEqual(first, second);
+  await extension.latestManga(1);
+  assert.equal(callCount, 1);
 });

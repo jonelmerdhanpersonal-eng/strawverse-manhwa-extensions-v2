@@ -1,8 +1,8 @@
 {
   "name": "strawverse-manhwa-extensions",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "private": true,
-  "description": "Community MangaDex Korean-origin manhwa provider for StrawVerse",
+  "description": "Community MangaDex Korean-origin Manhwa provider for StrawVerse",
   "scripts": {
     "test": "node --test"
   },

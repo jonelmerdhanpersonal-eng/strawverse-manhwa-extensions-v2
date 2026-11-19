@@ -1,7 +1,5 @@
 # Disclaimer
 
-This repository is an independent community extension for StrawVerse. It is not affiliated with, endorsed by, or operated by MangaDex or StrawVerse.
+This extension is a community-maintained client-side integration for the MangaDex public API. It does not host, store, or redistribute chapter image files.
 
-The extension queries MangaDex's public API and returns metadata and image URLs to the user's installed StrawVerse application. This repository does not host, mirror, bundle, sell, or redistribute manga or manhwa media.
-
-Users and distributors are responsible for following the laws that apply to them, MangaDex's current API acceptable-use policy, scanlation-group and rights-holder removal requests, and the terms that apply to any content accessed. The extension must not be used to access paid, private, or otherwise restricted material.
+Users are responsible for complying with MangaDex's acceptable-use policy, the rights of creators and scanlation groups, and applicable local laws. Credit MangaDex and scanlation groups where required, and honor removal requests.

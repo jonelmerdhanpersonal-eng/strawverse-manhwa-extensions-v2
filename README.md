@@ -1,16 +1,44 @@
-# StrawVerse Manhwa Extensions
+# StrawVerse Manhwa Extensions — MangaDex Manhwa 1.0.5
 
-A separate community extension repository for StrawVerse. Its first provider is **MangaDex Manhwa**, which searches Korean-origin titles through the MangaDex public API and returns English chapter pages where available.
+A community Manga extension for StrawVerse that searches Korean-origin MangaDex titles and returns English chapter listings when available.
 
-## Provider
+## What changed in 1.0.5
 
-| Provider | Source | Coverage | Version |
-| --- | --- | --- | --- |
-| MangaDex Manhwa (`mangadexmanhwa`) | MangaDex public API | Korean-origin titles (`originalLanguage=ko`) with English chapters available | 1.0.4 |
+- Reworked catalog requests to follow the current official MangaFire MangaDex scraper pattern: `global.axios.get()`, a 30-title page, and `cover_art` expansion for catalog results.
+- Preserved Manhwa filtering (`originalLanguage[]=ko`) and English-translation filtering (`availableTranslatedLanguage[]=en`).
+- Removed the redundant `hasAvailableChapters` query parameter and the extra author/artist expansions from catalog search requests.
+- Added a serialized request queue (one request at a time, at least 350 ms apart) to reduce bursts against MangaDex.
+- Added two-minute response caching and identical in-flight request deduplication.
+- Added clearer 403/429 error text and Retry-After header reporting. The extension never automatically retries a denied request.
+- Kept the current StrawVerse runtime hooks and the public developer-guide aliases.
+
+## Repository layout
+
+```text
+marketplace.json
+extensions/
+  Manga/
+    mangadexmanhwa.js
+ico/
+  mangadexmanhwa.ico
+README.md
+DISCLAIMER.md
+LICENSE
+package.json
+tests/
+  mangadexmanhwa.test.js
+```
+
+## Install/update
+
+1. Upload the contents of this repository (not the containing folder) to the root of your public GitHub repository.
+2. Confirm `marketplace.json` is at the repository root and reports version `1.0.5`.
+3. In StrawVerse, refresh the repository and update `mangadexmanhwa`. If the app keeps the old module cached, uninstall the scraper, restart StrawVerse, then install it again.
+4. Test Discover/search after the update.
 
 ## Compatibility
 
-Version 1.0.4 exports the lower-camel hooks used by StrawVerse's current built-in Manga providers:
+The runtime hooks match the current official MangaFire provider:
 
 - `latestManga(page, filters)`
 - `searchManga(query, page, filters)`
@@ -18,69 +46,28 @@ Version 1.0.4 exports the lower-camel hooks used by StrawVerse's current built-i
 - `fetchChapters(id)`
 - `fetchChapterPages(chapterId)`
 
-It also exports the capitalized aliases shown in StrawVerse's public developer guide:
+It also exports the public developer-guide hooks:
 
 - `SearchManga(query)`
 - `MangaInfo(id)`
 - `fetchChapterImages(chapterId)`
 
-This dual interface prevents the `latestManga is not a function` runtime failure seen with the previous 1.0.1 package and maintains compatibility with the public guide examples. Version 1.0.4 now calls the shared HTTP client as `global.axios.get(url)` with no custom request headers or Axios config, matching the working official MangaDex-backed provider in TheYogMehta/extensions. The MangaDex API is not given a forced Referer; image-host header rules remain separate. API errors include the failing path and HTTP status.
+## HTTP 403 and rate limits
 
-## Install in StrawVerse
+MangaDex applies IP-based API rate limits. If MangaDex temporarily blocks the public IP due to excessive requests, changing the extension code cannot remove that block. Stop retrying, wait for the block/rate-limit window to clear, and test once. This version deliberately does not retry 403 or 429 responses.
 
-1. Publish this folder as a public GitHub repository.
-2. Open StrawVerse → **Extensions** → **+ Add Repo**.
-3. Paste the GitHub repository URL or its direct `marketplace.json` URL.
-4. Under Manga, install `mangadexmanhwa`.
-5. To update an existing installation, publish the new files with the version increased to `1.0.4`, then use StrawVerse's update/refresh action. If the app keeps using cached code, uninstall the old scraper and reinstall it from the repository.
+The extension uses StrawVerse's shared `global.axios` client, exactly like the official MangaFire scraper. It does not set a custom User-Agent or Referer on API requests. A Referer rule is declared only for the cover-image host.
 
-Direct manifest URL format:
+## MangaDex requirements
 
-```text
-https://raw.githubusercontent.com/<YOUR_GITHUB_USERNAME>/<YOUR_REPOSITORY>/main/marketplace.json
-```
+MangaDex requires credit to MangaDex and scanlation groups when chapters are made available. Respect content removal requests and review MangaDex's current acceptable-use policy before distributing or using this extension. Do not add advertising or paid access to MangaDex-provided content.
 
-## Features
+## Tests
 
-- Search and browse Korean-origin MangaDex titles.
-- Restrict results to titles with English-translated chapters available.
-- Paginated latest and title-search results.
-- Title covers, descriptions, status, year, genres, authors, and artists.
-- English chapter lists with scanlation-group credit when supplied by MangaDex.
-- Chapter page URLs from MangaDex's official `at-home` endpoint.
-- Original images preferred, with data-saver images as fallback.
-- Five-minute in-memory response caches for browsing and metadata calls.
-
-The provider does not host, mirror, package, or redistribute image files. It requests current image URLs from MangaDex at runtime. It does not attempt to access member-only, paid, or otherwise restricted chapters.
-
-## MangaDex attribution and usage conditions
-
-MangaDex's API acceptable-use requirements apply. Review the current API documentation and acceptable-use policy before using or distributing this extension:
-
-- https://api.mangadex.org/docs/
-- https://api.mangadex.org/docs/redoc.html#section/Acceptable-use-policy
-
-In particular, applications using MangaDex API content must credit MangaDex and scanlation groups where applicable, honor scanlation-group content-removal requests, and must not monetize MangaDex API access with ads or paid services. Chapter labels include scanlation-group attribution when available. If a group requests removal, add its UUID to `REMOVED_SCANLATION_GROUP_IDS` in `extensions/Manga/mangadexmanhwa.js`, increment the extension version in both `marketplace.json` and the JS file, and publish the update.
-
-## Repository layout
-
-```text
-strawverse-manhwa-extensions/
-├── marketplace.json
-├── extensions/Manga/mangadexmanhwa.js
-├── ico/mangadexmanhwa.ico
-├── ico/mangadexmanhwa.png
-├── tests/mangadexmanhwa.test.js
-├── DISCLAIMER.md
-├── LICENSE
-├── package.json
-└── README.md
-```
-
-## Local checks
-
-Requires Node.js 18 or later. Tests use a mocked HTTP client and do not access or store live manga pages.
+Run:
 
 ```bash
 npm test
 ```
+
+Tests use mocked MangaDex responses. They validate the extension contract and mapping logic; they do not claim to verify live MangaDex availability from your network or StrawVerse installation.
