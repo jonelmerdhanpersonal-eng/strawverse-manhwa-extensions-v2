@@ -82,7 +82,7 @@ const provider = require("../extensions/Manga/mangadexmanhwa");
 
 test("exports the current StrawVerse runtime hooks and guide aliases", () => {
   assert.equal(provider.name, "mangadexmanhwa");
-  assert.equal(provider.version, "1.0.2");
+  assert.equal(provider.version, "1.0.3");
 
   for (const hook of [
     "latestManga",
@@ -114,6 +114,8 @@ test("latestManga returns StrawVerse paginated discovery format", async () => {
   assert.equal(request.url.searchParams.get("originalLanguage[]"), "ko");
   assert.equal(request.url.searchParams.get("availableTranslatedLanguage[]"), "en");
   assert.equal(request.url.searchParams.get("order[latestUploadedChapter]"), "desc");
+  assert.equal(request.config.headers["User-Agent"], undefined, "must not spoof MangaDex User-Agent");
+  assert.equal(request.config.headers.Referer, undefined, "API requests must not send a forced Referer");
 });
 
 test("searchManga returns paginated results and uses the query", async () => {
@@ -165,4 +167,28 @@ test("capitalized developer-guide aliases remain available", async () => {
 
   const pages = await provider.fetchChapterImages(`mdko-ch-${chapterId}`);
   assert.equal(pages[0].url, "https://uploads.example.test/data/hashvalue/001.jpg");
+});
+
+
+test("HTTP failures report the MangaDex status, API detail, and retry hint", async () => {
+  const originalAxios = global.axios;
+  global.axios = {
+    async get() {
+      const error = new Error("Request failed with status code 403");
+      error.response = {
+        status: 403,
+        data: { errors: [{ detail: "Access temporarily denied." }] },
+        headers: { "retry-after": "30" },
+      };
+      throw error;
+    },
+  };
+  try {
+    await assert.rejects(
+      provider.searchManga("diagnostic-only-query", 1),
+      /MangaDex API returned HTTP 403 for \/manga.*Access temporarily denied.*Retry-After: 30/,
+    );
+  } finally {
+    global.axios = originalAxios;
+  }
 });

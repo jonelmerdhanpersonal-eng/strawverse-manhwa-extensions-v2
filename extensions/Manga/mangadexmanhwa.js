@@ -12,13 +12,12 @@
  * image files. Review MangaDex's current API acceptable-use policy before use.
  */
 const name = "mangadexmanhwa";
-const version = "1.0.2";
+const version = "1.0.3";
 const baseUrl = "https://api.mangadex.org";
 const pageSize = 20;
 const chapterPageSize = 500;
 const allowedContentRatings = ["safe", "suggestive"];
 const allowedTranslatedLanguages = ["en"];
-const userAgent = `StrawVerse community extension ${name}/${version} (+https://github.com/TheYogMehta/StrawVerse)`;
 
 // Add MangaDex scanlation-group UUIDs here if a group requests content removal.
 const REMOVED_SCANLATION_GROUP_IDS = new Set([]);
@@ -54,14 +53,29 @@ function getAxios() {
 async function getJson(path, params) {
   const query = params ? params.toString() : "";
   const url = `${baseUrl}${path}${query ? `?${query}` : ""}`;
-  const response = await getAxios().get(url, {
-    headers: {
-      Accept: "application/json",
-      "User-Agent": userAgent,
-    },
-    timeout: 20000,
-  });
-  return response?.data;
+  try {
+    // Let StrawVerse's native Axios/Node transport provide its real User-Agent.
+    // MangaDex requires a genuine, non-spoofed User-Agent; do not override it.
+    const response = await getAxios().get(url, {
+      headers: { Accept: "application/json" },
+      timeout: 20000,
+    });
+    return response?.data;
+  } catch (error) {
+    const status = error?.response?.status;
+    const apiErrors = error?.response?.data?.errors;
+    const detail = Array.isArray(apiErrors)
+      ? apiErrors.map((item) => item?.detail || item?.title).filter(Boolean).join("; ")
+      : "";
+    const retryAfter = error?.response?.headers?.["retry-after"];
+    if (status) {
+      const retryHint = retryAfter ? ` Retry-After: ${retryAfter}.` : "";
+      throw new Error(
+        `MangaDex API returned HTTP ${status} for ${path}.${detail ? ` ${detail}` : ""}${retryHint}`,
+      );
+    }
+    throw new Error(`MangaDex API request failed for ${path}: ${error?.message || "Unknown network error"}`);
+  }
 }
 
 function addRepeated(params, key, values) {
@@ -349,9 +363,11 @@ module.exports = {
   name,
   version,
   baseUrl,
+  // Cover CDN may require a MangaDex Referer. Do not inject a Referer into
+  // API requests; search/detail/feed requests are server-to-server JSON calls.
   headerRules: [
     {
-      match: ["api.mangadex.org", "uploads.mangadex.org"],
+      match: ["uploads.mangadex.org"],
       headers: { Referer: "https://mangadex.org/" },
     },
   ],

@@ -6,11 +6,11 @@ A separate community extension repository for StrawVerse. Its first provider is 
 
 | Provider | Source | Coverage | Version |
 | --- | --- | --- | --- |
-| MangaDex Manhwa (`mangadexmanhwa`) | MangaDex public API | Korean-origin titles (`originalLanguage=ko`) with English chapters available | 1.0.2 |
+| MangaDex Manhwa (`mangadexmanhwa`) | MangaDex public API | Korean-origin titles (`originalLanguage=ko`) with English chapters available | 1.0.3 |
 
 ## Compatibility
 
-Version 1.0.2 exports the lower-camel hooks used by StrawVerse's current built-in Manga providers:
+Version 1.0.3 exports the lower-camel hooks used by StrawVerse's current built-in Manga providers:
 
 - `latestManga(page, filters)`
 - `searchManga(query, page, filters)`
@@ -24,7 +24,7 @@ It also exports the capitalized aliases shown in StrawVerse's public developer g
 - `MangaInfo(id)`
 - `fetchChapterImages(chapterId)`
 
-This dual interface prevents the `latestManga is not a function` runtime failure seen with the previous 1.0.1 package and maintains compatibility with the public guide examples.
+This dual interface prevents the `latestManga is not a function` runtime failure seen with the previous 1.0.1 package and maintains compatibility with the public guide examples. Version 1.0.3 also stops overriding the HTTP client User-Agent, removes the API-domain Referer override, and reports the failing API path/status in extension errors.
 
 ## Install in StrawVerse
 
@@ -32,7 +32,7 @@ This dual interface prevents the `latestManga is not a function` runtime failure
 2. Open StrawVerse → **Extensions** → **+ Add Repo**.
 3. Paste the GitHub repository URL or its direct `marketplace.json` URL.
 4. Under Manga, install `mangadexmanhwa`.
-5. To update an existing installation, publish the new files with the version increased to `1.0.2`, then use StrawVerse's update/refresh action. If the app keeps using cached code, uninstall the old scraper and reinstall it from the repository.
+5. To update an existing installation, publish the new files with the version increased to `1.0.3`, then use StrawVerse's update/refresh action. If the app keeps using cached code, uninstall the old scraper and reinstall it from the repository.
 
 Direct manifest URL format:
 
