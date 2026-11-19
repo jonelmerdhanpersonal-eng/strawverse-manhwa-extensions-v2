@@ -1,0 +1,10 @@
+{
+  "Manga": [
+    {
+      "name": "mangadexmanhwa",
+      "version": "1.0.1",
+      "MinAppVersion": "11.1.0",
+      "disabled": false
+    }
+  ]
+}
