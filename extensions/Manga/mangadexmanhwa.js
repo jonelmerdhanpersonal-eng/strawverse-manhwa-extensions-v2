@@ -12,7 +12,7 @@
  * image files. Review MangaDex's current API acceptable-use policy before use.
  */
 const name = "mangadexmanhwa";
-const version = "1.0.3";
+const version = "1.0.4";
 const baseUrl = "https://api.mangadex.org";
 const pageSize = 20;
 const chapterPageSize = 500;
@@ -54,12 +54,10 @@ async function getJson(path, params) {
   const query = params ? params.toString() : "";
   const url = `${baseUrl}${path}${query ? `?${query}` : ""}`;
   try {
-    // Let StrawVerse's native Axios/Node transport provide its real User-Agent.
-    // MangaDex requires a genuine, non-spoofed User-Agent; do not override it.
-    const response = await getAxios().get(url, {
-      headers: { Accept: "application/json" },
-      timeout: 20000,
-    });
+    // Match the working official MangaDex-backed provider in
+    // TheYogMehta/extensions/extensions/Manga/mangafire.js:
+    // use StrawVerse's shared Axios client with no custom headers or config.
+    const response = await getAxios().get(url);
     return response?.data;
   } catch (error) {
     const status = error?.response?.status;

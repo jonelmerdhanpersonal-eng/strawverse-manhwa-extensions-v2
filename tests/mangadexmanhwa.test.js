@@ -82,7 +82,7 @@ const provider = require("../extensions/Manga/mangadexmanhwa");
 
 test("exports the current StrawVerse runtime hooks and guide aliases", () => {
   assert.equal(provider.name, "mangadexmanhwa");
-  assert.equal(provider.version, "1.0.3");
+  assert.equal(provider.version, "1.0.4");
 
   for (const hook of [
     "latestManga",
@@ -114,8 +114,7 @@ test("latestManga returns StrawVerse paginated discovery format", async () => {
   assert.equal(request.url.searchParams.get("originalLanguage[]"), "ko");
   assert.equal(request.url.searchParams.get("availableTranslatedLanguage[]"), "en");
   assert.equal(request.url.searchParams.get("order[latestUploadedChapter]"), "desc");
-  assert.equal(request.config.headers["User-Agent"], undefined, "must not spoof MangaDex User-Agent");
-  assert.equal(request.config.headers.Referer, undefined, "API requests must not send a forced Referer");
+  assert.equal(request.config, undefined, "match official provider: no per-request Axios config");
 });
 
 test("searchManga returns paginated results and uses the query", async () => {
